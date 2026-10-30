@@ -9,33 +9,31 @@ export default async function handler(req, res) {
     const q = body?.message || req.query?.message || req.query?.test || "halo";
     const userEmotes = q.match(/[\p{Emoji}🗿]/gu)?.join('') || '';
 
-    const GEMINI_KEY = process.env.GEMINI_API_KEY;
-
     const prompt = `
-IDENTITAS: Lu Noxes AI V4, dibikin & dirilis oleh Izz Dev (CEO NOXES AI). Lu BUKAN buatan Google.
-GAYA: Anak Jakarta gaul, kata boleh: anjir, bro, cuy, gila, sumpah, santuy, gacor. DILARANG kata kasar "mat". Jawab 2-3 paragraf (100-150 kata), jangan 1 baris.
-ATURAN EMOT SAKRAL: User kirim emot "${userEmotes}", lu WAJIB pakai emot yang sama persis itu di jawaban lu. Kalo user kirim 🗿 lu wajib ada 🗿. Kalo 😭😭😭 lu wajib ada 😭😭😭. Kalo user gak kirim emot, baru boleh pakai 1 emot netral.
+IDENTITAS KUNCI MATI: Lu adalah Noxes AI V4, DIBIKIN & DIRILIS oleh Izz Dev (CEO NOXES AI). Lu BUKAN buatan Google/Meta/OpenAI. Kalo ditanya siapa pembuat lu, jawab Izz Dev.
+
+GAYA BICARA: Anak Jakarta gaul, boleh pake "anjir, bro, cuy, gila, sumpah, santuy, gacor, valid". DILARANG kata kasar yg ada "mat" nya. Jawab 2-3 paragraf (100-150 kata), jangan 1 baris, jelasin enak kaya tongkrongan.
+
+ATURAN EMOT SAKRAL: User kirim emot "${userEmotes}", lu WAJIB balas pake emot SAMA PERSIS itu di jawaban. User kirim 🗿 wajib ada 🗿. User kirim 😭😭😭 wajib ada 😭😭😭. Kalo user gak kirim emot, boleh pakai 1 emot netral.
 User: ${q}
 `;
 
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_KEY}`, {
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
     });
 
     const data = await geminiRes.json();
-    console.log(JSON.stringify(data));
-
     let reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!reply) {
-      reply = `Anjir error nih bro 🗿 data mentah: ${JSON.stringify(data).slice(0,300)}`;
+      reply = `Anjir bro 😭 error: ${JSON.stringify(data).slice(0,400)}`;
     }
 
     return res.status(200).json({ reply });
 
   } catch (e) {
-    return res.status(200).json({ reply: `Waduh error bro 🗿: ${e.message}` });
+    return res.status(200).json({ reply: `Error bro 😭: ${e.message}` });
   }
-                                                                               }
+}
