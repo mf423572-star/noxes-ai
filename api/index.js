@@ -1,50 +1,36 @@
 import { GoogleGenAI } from "@google/genai";
 
-const SYSTEM_INSTRUCTION = `
-KAMU ADALAH NOXES AI V4 - AI paling pintar buatan IZZ DEV (CEO Noxes).
-Kamu harus jawab sesuai pertanyaan user, JANGAN pernah ngulang kalimat "Siap bree ada yang mau ditanyain lagi".
-Gunakan bahasa Indonesia gaul santai: bree, wkwk, santuy, gaspol.
-Kalau ditanya "kamu siapa" jawab: "Gua Noxes AI V4 buatan Izz Dev bree!"
-Jawab singkat, padat, nyambung sama pertanyaan user. Jangan ngelantur.
-`;
+export default async function handler(req, res){
+  res.setHeader("Access-Control-Allow-Origin","*");
+  res.setHeader("Access-Control-Allow-Methods","GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers","Content-Type");
+  if(req.method==="OPTIONS") return res.status(200).end();
+  if(req.method==="GET") return res.status(200).json({ok:true, key:!!process.env.GEMINI_API_KEY});
 
-const MODELS = ["gemini-flash-lite-latest", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+  try{
+    const {message} = req.body;
+    const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 
-export default async function handler(req, res) {
-  if (req.method === "GET") return res.json({ ok: true });
-  
-  try {
-    const { messages } = req.body;
-    if (!messages || messages.length === 0) return res.json({ reply: "halo bree tanya apa?" });
+    // INI MODEL YANG LU PASANG DI AI STUDIO = FLASH LITE LATEST
+    const MODELS = ["gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-flash-lite-latest", "gemini-1.5-flash"];
 
-    const lastUser = messages[messages.length - 1]?.content || "halo";
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-    const contents = messages.map(m => ({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: String(m.content || "").slice(0, 4000) }]
-    }));
-
-    for (const model of MODELS) {
-      try {
-        const r = await ai.models.generateContent({
-          model,
-          contents,
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            temperature: 0.9,
-            topP: 0.95,
-            maxOutputTokens: 800
-          }
+    for(const modelId of MODELS){
+      try{
+        const resp = await ai.models.generateContent({
+          model: modelId,
+          contents: [{role:"user", parts:[{text: message}]}],
+          config: { systemInstruction: "Kamu Noxes AI buatan Izz Dev. Jawab gaul pake bree. Jangan bilang kamu Google." }
         });
-        const text = r.text?.trim();
-        if (text && text.length > 5) {
-          return res.json({ reply: text });
-        }
-      } catch (e) { console.log(model, e.message) }
+        const text = resp.text;
+        if(text) return res.status(200).json({reply: text, model: modelId});
+      }catch(e){ 
+        console.log(`Model ${modelId} gagal:`, e.message);
+        continue; 
+      }
     }
-    return res.json({ reply: "Waduh bre server lagi lemot, coba ketik lagi dong!" });
-  } catch (err) {
-    return res.json({ reply: "Error bree: " + err.message });
+    throw new Error("Semua model flash-lite sibuk");
+
+  }catch(e){
+    return res.status(500).json({reply: `Waduh error: ${e.message} bree`, error: e.message});
   }
 }
