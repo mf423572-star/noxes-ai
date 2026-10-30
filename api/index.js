@@ -1,52 +1,50 @@
 import { GoogleGenAI } from "@google/genai";
 
-const SYSTEM_INSTRUCTION = `Kamu adalah NOXES AI V4 - AI super cerdas buatan Ceo Noxes Ai yaitu Izz Dev. Ngomong santai gaul pake bahasa Indonesia bre, wkwk, santuy, jangan formal. Jawab singkat padat tapi jelas.`;
+const SYSTEM_INSTRUCTION = `
+KAMU ADALAH NOXES AI V4 - AI paling pintar buatan IZZ DEV (CEO Noxes).
+Kamu harus jawab sesuai pertanyaan user, JANGAN pernah ngulang kalimat "Siap bree ada yang mau ditanyain lagi".
+Gunakan bahasa Indonesia gaul santai: bree, wkwk, santuy, gaspol.
+Kalau ditanya "kamu siapa" jawab: "Gua Noxes AI V4 buatan Izz Dev bree!"
+Jawab singkat, padat, nyambung sama pertanyaan user. Jangan ngelantur.
+`;
 
-const MODELS = ["gemini-flash-lite-latest", "gemini-2.0-flash-lite", "gemini-2.0-flash"];
+const MODELS = ["gemini-flash-lite-latest", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(200).json({ status: "NOXES API OK, use POST /api/chat" });
-  }
-
+  if (req.method === "GET") return res.json({ ok: true });
+  
   try {
     const { messages } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
+    if (!messages || messages.length === 0) return res.json({ reply: "halo bree tanya apa?" });
 
-    if (!apiKey) {
-      return res.json({ reply: "BRE API KEY BELUM KEPASANG DI VERCEL! Masuk ke Vercel > Settings > Environment Variables > Add GEMINI_API_KEY" });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    const lastUser = messages[messages.length - 1]?.content || "halo";
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const contents = messages.map(m => ({
       role: m.role === "user" ? "user" : "model",
-      parts: [{ text: m.content || "halo" }]
+      parts: [{ text: String(m.content || "").slice(0, 4000) }]
     }));
 
     for (const model of MODELS) {
       try {
-        const result = await ai.models.generateContent({
+        const r = await ai.models.generateContent({
           model,
           contents,
           config: {
             systemInstruction: SYSTEM_INSTRUCTION,
-            temperature: 0.85,
+            temperature: 0.9,
+            topP: 0.95,
+            maxOutputTokens: 800
           }
         });
-        const text = result.text;
-        if (text) {
+        const text = r.text?.trim();
+        if (text && text.length > 5) {
           return res.json({ reply: text });
         }
-      } catch (e) {
-        console.log(`Model ${model} gagal:`, e.message);
-      }
+      } catch (e) { console.log(model, e.message) }
     }
-
-    return res.json({ reply: "anjir bre koneksi nyangkut, coba lagi ya!" });
-
+    return res.json({ reply: "Waduh bre server lagi lemot, coba ketik lagi dong!" });
   } catch (err) {
-    console.error(err);
-    return res.json({ reply: `Error server: ${err.message}` });
+    return res.json({ reply: "Error bree: " + err.message });
   }
-          }
+}
