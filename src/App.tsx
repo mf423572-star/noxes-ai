@@ -378,7 +378,7 @@ export default function App() {
        else if (!finalReply) {
 finalReply = accumulatedReply || 'Maaf bree, server lagi kosong responsnya, coba lagi bree!';
       }
-
+      }
       const aiMessage: Message = {
         id: 'msg-ai-' + Date.now(),
         role: 'model',
