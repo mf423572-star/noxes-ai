@@ -59,9 +59,9 @@ const ai = new GoogleGenAI({
 
 // Preferred models in order of speed and availability
 const MODELS_TO_TRY = [
-  'gemini-2.5-flash-lite-preview-06-17',
-  'gemini-2.0-flash-lite',
-  'gemini-2.0-flash',
+  'gemini-flash-lite-latest',
+  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
 ];
 
 interface ChatLog {
