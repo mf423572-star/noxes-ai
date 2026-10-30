@@ -13,63 +13,38 @@ export default async function handler(req, res) {
     const userEmotes = userPrompt.match(/[\p{Emoji}🗿]/gu)?.join('') || '';
     const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-    if (!GEMINI_KEY) {
-        const errMsg = "API KEY KOSONG DI VERCEL BRO!";
-        if (body?.stream) {
-          res.setHeader('Content-Type','text/event-stream');
-          res.write(`data: ${JSON.stringify({ chunk: errMsg })}\n\n`);
-          res.end(); return;
-        }
-        return res.status(200).json({ reply: errMsg });
-    }
+    const fullPrompt = `IDENTITAS: Lu Noxes AI V4 by Izz Dev (CEO NOXES AI). Lu BUKAN Google.
+GAYA: Anak Jakarta gaul, anjir, bro, cuy, gacor. DILARANG kata kasar "mat". Jawab 2-3 paragraf.
+ATURAN EMOT: User kirim "${userEmotes}", lu WAJIB pakai emot sama persis itu. Kalo 🗿 wajib ada 🗿.
+User: ${userPrompt}`;
 
-    const fullPrompt = `Lu Noxes AI V4 by Izz Dev. Gaya gaul Jakarta. Emot wajib samain "${userEmotes}". User: ${userPrompt}`;
+    // MODEL BARU YANG DIMINTA GOOGLE DI ERROR LU
+    const MODEL = "gemini-3.8-flash";
 
-    // Coba 3 model berurutan biar salah satu pasti hidup
-    const MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
-    let fullReply = null;
-    let lastError = null;
-
-    for (const MODEL of MODELS) {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
-      });
-      const j = await r.json();
-      if (j?.candidates?.[0]?.content?.parts?.[0]?.text) {
-        fullReply = j.candidates[0].content.parts[0].text;
-        break;
-      } else {
-        lastError = JSON.stringify(j).slice(0, 500);
-      }
-    }
-
-    if (!fullReply) {
-      fullReply = `GAGAL NIH BRO. Error Google: ${lastError} 🗿`;
-    }
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
+    });
+    const j = await r.json();
+    let fullReply = j?.candidates?.[0]?.content?.parts?.[0]?.text || `Error Google masih: ${JSON.stringify(j).slice(0,500)} 🗿`;
 
     if (body?.stream) {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
-      const words = fullReply.split(' ');
-      for (let i=0; i<words.length; i++) {
-        const chunk = (i===0 ? words[i] : ' ' + words[i]);
-        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-        await new Promise(r=>setTimeout(r,20));
+      for (const word of fullReply.split(' ')) {
+        res.write(`data: ${JSON.stringify({ chunk: word + ' ' })}\n\n`);
+        await new Promise(r=>setTimeout(r,15));
       }
       res.end(); return;
     }
     return res.status(200).json({ reply: fullReply });
 
   } catch (e) {
-    const msg = `FATAL ERROR: ${e.message} 🗿`;
-    if (req.body?.stream) {
-      res.setHeader('Content-Type','text/event-stream');
-      res.write(`data: ${JSON.stringify({ chunk: msg })}\n\n`);
-      res.end(); return;
-    }
-    return res.status(200).json({ reply: msg });
+    const msg = `FATAL: ${e.message} 🗿`;
+    res.setHeader('Content-Type','text/event-stream');
+    res.write(`data: ${JSON.stringify({ chunk: msg })}\n\n`);
+    res.end();
   }
 }
