@@ -375,8 +375,8 @@ export default function App() {
         } else if (!finalReply.toLowerCase().includes('muka lu tetep ori')) {
           finalReply = `${requiredPhrase}\n\n${finalReply}`;
         }
-      } else if (!finalReply) {
-        finalReply = 'Siap bree! Ada yang mau ditanyain lagi gak bree? Gaspol bree!';
+       else if (!finalReply) {
+finalReply = accumulatedReply || 'Maaf bree, server lagi kosong responsnya, coba lagi bree!';
       }
 
       const aiMessage: Message = {
