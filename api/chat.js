@@ -6,42 +6,59 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const q = body?.message || req.query?.message || req.query?.test || "halo";
-    const userEmotes = q.match(/[\p{Emoji}🗿]/gu)?.join('') || '';
+    
+    // Ambil prompt user dari format frontend lu
+    let userPrompt = body?.message || "";
+    if (body?.messages && Array.isArray(body.messages)) {
+        userPrompt = body.messages[body.messages.length - 1]?.content || "";
+    }
+    if (req.query?.test) userPrompt = req.query.test;
 
-    const prompt = `
-IDENTITAS KUNCI MATI: Lu Noxes AI V4, DIBIKIN & DIRILIS oleh Izz Dev (CEO NOXES AI). Lu BUKAN buatan Google/Meta.
-GAYA: Anak Jakarta gaul, boleh pake "anjir, bro, cuy, gila, sumpah, santuy, gacor, valid". DILARANG kata kasar "mat". Jawab 2-3 paragraf (100-150 kata), jangan 1 baris.
-ATURAN EMOT SAKRAL: User kirim emot "${userEmotes}", lu WAJIB balas pake emot SAMA PERSIS itu. User kirim 🗿 wajib ada 🗿. User kirim 😭😭😭 wajib ada 😭😭😭.
-User: ${q}
-`;
+    const userEmotes = userPrompt.match(/[\p{Emoji}🗿]/gu)?.join('') || '';
 
-    // MODEL BARU 2026 YANG MASIH HIDUP
-    const MODEL = "gemini-2.5-flash"; 
+    const systemPrompt = `IDENTITAS KUNCI MATI: Lu Noxes AI V4, DIBIKIN oleh Izz Dev (CEO NOXES AI). Lu BUKAN buatan Google.
+GAYA: Anak Jakarta gaul, boleh pake anjir, bro, cuy, gila, sumpah, santuy, gacor. DILARANG kata "mat". Jawab 2-3 paragraf (100-150 kata).
+ATURAN EMOT SAKRAL: User kirim emot "${userEmotes}", WAJIB lu pakai emot yang sama persis itu. Kalo 🗿 wajib ada 🗿. Kalo 😭😭😭 wajib ada 😭😭😭.`;
 
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    const fullPrompt = `${systemPrompt}\nUser: ${userPrompt}`;
+
+    // Panggil Gemini 2.5-flash (model hidup 2026)
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
     });
-
     const data = await geminiRes.json();
-    let reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const fullReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Anjir error bro, coba lagi 😭";
 
-    if (!reply) {
-      // Kalo masih gagal, coba fallback ke 3.5-flash-lite
-      const fallbackRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
-      const fallbackData = await fallbackRes.json();
-      reply = fallbackData?.candidates?.[0]?.content?.parts?.[0]?.text || `Error bro: ${JSON.stringify(data).slice(0,300)}`;
+    // Kalo request minta STREAMING (dari App.tsx lu)
+    if (body?.stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      // Kirim pura-pura streaming biar frontend lu seneng
+      const words = fullReply.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        const chunk = (i === 0 ? words[i] : ' ' + words[i]);
+        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+        await new Promise(r => setTimeout(r, 25)); // efek ketik
+      }
+      res.end();
+      return;
     }
 
-    return res.status(200).json({ reply });
+    // Kalo bukan streaming (tes via link)
+    return res.status(200).json({ reply: fullReply });
 
   } catch (e) {
+    console.error(e);
+    // Kalo streaming, kirim error sebagai chunk juga
+    if (req.body?.stream) {
+       res.write(`data: ${JSON.stringify({ chunk: `Error bro: ${e.message} 😭` })}\n\n`);
+       res.end();
+       return;
+    }
     return res.status(200).json({ reply: `Error bro 😭: ${e.message}` });
   }
 }
